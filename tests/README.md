@@ -1,60 +1,42 @@
-# Tests
+# Python unit tests
 
-This directory contains synthetic MATLAB characterization tests for the current implementation. They define contracts that can later be copied to the Python implementation. They are not yet a substitute for golden-session regression against real SLAP2 recordings.
+This suite validates the installable `slap2_voltage_extraction` package.
 
-## Requirements
+## Contract policy
 
-- MATLAB R2023b Update 7 on Linux is the characterization reference runtime.
-- Run from the repository root.
-- No raw SLAP2 session is required for the synthetic suite.
-- Parallel Computing Toolbox is not needed unless parallel tests are added.
+- Scientific values, meaningful axes, dtypes, tolerances, failure behavior, and serialized schemas are regression-tested.
+- Internals use snake_case, zero-based indices, half-open ranges, one-dimensional vectors, and C-order arrays.
+- Legacy conversions occur only at explicit boundaries. Trial tables retain one-based inclusive `first_line` and `last_line` values, and HDF5 output retains established names, dimensions, orientations, and layout markers.
+- NumPy `float32` and `float64` represent the supported single- and double-precision modes.
+- Structured data uses nested dictionaries unless another result type is explicitly appropriate.
+- Domain exceptions expose stable identifiers through a `code` attribute.
 
-Run the complete suite in a fresh MATLAB process:
+## Package API under test
 
-```matlab
-clear classes
-setup
-results = runtests('tests');
-table(results)
-assertSuccess(results)
-```
+Primary entry points are imported from `slap2_voltage_extraction`:
 
-From a cloned checkout on a workstation with Git and MATLAB on `PATH`, update
-the `python_translation` branch and run the same suite with:
+- `voltage`
+- `process_voltage`
+- `build_trial_table_slap2`
+- `preview_motion_censor`
+
+Supporting APIs are imported from package submodules:
+
+- `slap2_voltage_extraction.source_extraction`
+- `slap2_voltage_extraction.parameters`
+- `slap2_voltage_extraction.io`
+- `slap2_voltage_extraction.motion`
+- `slap2_voltage_extraction.trace`
+- `slap2_voltage_extraction.presets`
+
+Tests use dependency injection and Python-native synthetic readers.
+
+## Running
+
+From the repository root:
 
 ```bash
-bash run_matlab_tests.sh
+uv run pytest
 ```
 
-`clear classes` matters when rerunning tests interactively because MATLAB can cache package classes after paths change. The suite uses one shared `slap2.util.MultiDataFiles` test double under `tests/fakes`; production `Trace` and `TracePixel` remain under test.
-
-## Characterization sections
-
-- `TestBuildTrialTableSLAP2.m`: triggered and continuous-CYCLE trial-table construction, mismatch repair, AIND layout, references, HDF5 output, and expected failures. External SLAP2/TIFF parsing is replaced by test doubles.
-- `TestVoltageParameters.m`: defaults, overrides, coercion, JSON/MAT input, ASAP7/ASAP8 presets, and validation.
-- `TestComputeVoltageF0.m`: static and robust baselines, float32 staging, interpolation, moving medians, fallback values, shape, precision, and metadata.
-- `TestComputeVoltageDFF.m`: indicator polarity, aliases, fallback baselines, float32 arithmetic, shape, precision, metadata, and errors.
-- `TestHdf5StructIO.m`: recursive struct round trips, text/cell semantics, dimensions, overwrite behavior, legacy field normalization, and errors.
-- `TestScanImageTiffIO.m`: generated uncompressed TIFFs, orientation, stacks, wrappers, metadata, lifecycle, fallback, and invalid input.
-- `TestTracePixel.m`: real temporary `int16` files, cycle/offset addressing, sentinel handling, loading, weighting kernels, and empty arrays.
-- `TestTrace.m`: production raster/integration mapping, superpixel grouping, channel offsets, z filtering, selection counts, and processing.
-- `TestVoltage.m`: public pipeline orchestration with tiny trial-table HDF5 and raw `int16` files. It uses the shared fake only for `MultiDataFiles` metadata parsing and executes production `Trace`, `TracePixel`, F0, dF/F, and HDF5 code.
-- `TestRepositorySetup.m`: path setup, dependency resolution, and idempotence.
-
-The older lowercase `test_*.m` files remain temporarily as complementary regression/contract tests. Some behavior overlaps with the class-based suite; remove them only after the new suite passes on the MATLAB workstation and their unique assertions have been compared.
-
-Run one class while diagnosing a failure:
-
-```matlab
-clear classes
-setup
-results = runtests('tests/TestTracePixel.m');
-table(results)
-```
-
-## Test-double boundary
-
-Dummy data replaces only unavailable external parsing or metadata assembly. Low-level numerical and binary algorithms use production code. In particular, `TestVoltage` is not an end-to-end validation of the external SLAP2 reader; that boundary must be covered by the future real-session test.
-
-- `test_voltage_roi_discovery_contract.m` protects the parse-plan ROI selector, legacy raw-F mask semantics, all-zero-ROI failure, and lazy parallel-pool startup.
-- `test_motion_censor.m` covers the online-offset censoring rule, mask-to-line expansion, parameter wiring in `setParams`, engine integration, and NaN-safe F0/dF/F with censored samples.
+These are unit and contract tests. Real SLAP2 readers, representative sessions, thread safety, memory use, and performance are reserved for integration testing.
