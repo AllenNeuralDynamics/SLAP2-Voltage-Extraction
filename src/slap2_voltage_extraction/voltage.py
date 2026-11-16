@@ -905,6 +905,11 @@ def voltage(
     )
 
     try:
+        print(
+            f"[voltage] Starting extraction: {n_paths} path(s), {n_trials} trial slot(s)",
+            flush=True,
+        )
+        print(f"[voltage] Writing: {output_path}", flush=True)
         save_struct_to_h5({"format_version": FORMAT_VERSION, "params": params}, output_path)
         summary: dict[str, Any] = {
             "trial_table_path": str(trial_table_path),
@@ -922,6 +927,11 @@ def voltage(
             path_started = time.perf_counter()
             timing = empty_timing()
             valid_trials = np.flatnonzero((filenames[path_idx] != "") & (trial_num_samples[path_idx] > 0))
+            print(
+                f"[voltage] Path {path_idx + 1}/{n_paths}: "
+                f"{valid_trials.size} valid trial(s)",
+                flush=True,
+            )
             if not valid_trials.size:
                 warnings.warn(
                     f"Voltage:NoValidTrials: Path{path_idx + 1} has no valid trials; skipping.",
@@ -948,6 +958,11 @@ def voltage(
             n_rois = masks.shape[2]
             total_voltage_rois += n_rois
             trial_offsets, total_samples = compute_trial_offsets(trial_num_samples[path_idx])
+            print(
+                f"[voltage] Path {path_idx + 1}/{n_paths}: found {n_rois} voltage ROI(s), "
+                f"{len(unique_sources)} source file(s), {total_samples} sample(s)",
+                flush=True,
+            )
             path_name = f"/Path{path_idx + 1}"
             path_summary: dict[str, Any] = {
                 "n_acquisition_rois": discovery["n_acquisition_rois"],
@@ -1002,6 +1017,12 @@ def voltage(
             path_summary["motion"] = []
             for source_idx, source_name in enumerate(unique_sources):
                 source_trials = valid_trials[source_groups == source_idx]
+                print(
+                    f"[voltage] Path {path_idx + 1}/{n_paths}, "
+                    f"source {source_idx + 1}/{len(unique_sources)}: {source_name} "
+                    f"({source_trials.size} trial(s))",
+                    flush=True,
+                )
                 if source_idx == 0:
                     mdf = first_mdf
                     first_mdf = None
@@ -1036,6 +1057,7 @@ def voltage(
                         np.zeros(0, dtype=bool) for _ in complete_epoch_ids
                     ]
                     if bool(params["motion_censor_enable"]):
+                        print("[voltage]   Reading and applying online motion censoring...", flush=True)
                         motion_mask, motion_info = compute_source_motion_mask(mdf, params, sample_rate_hz)
                         write_motion_mask_slices(
                             output_path,
@@ -1077,7 +1099,15 @@ def voltage(
                                 RuntimeWarning,
                                 stacklevel=2,
                             )
-                    for batch in make_batches(np.arange(n_rois), int(params["max_concurrent_rois"])):
+                    batches = make_batches(np.arange(n_rois), int(params["max_concurrent_rois"]))
+                    for batch_idx, batch in enumerate(batches):
+                        first_roi = int(batch[0]) + 1
+                        last_roi = int(batch[-1]) + 1
+                        print(
+                            f"[voltage]   ROI batch {batch_idx + 1}/{len(batches)} "
+                            f"(ROIs {first_roi}-{last_roi} of {n_rois})...",
+                            flush=True,
+                        )
                         started = time.perf_counter()
                         traces, errors = extract_roi_batch(mdf, masks, batch, params)
                         timing["raw_trace_s"] += time.perf_counter() - started
@@ -1145,6 +1175,11 @@ def voltage(
                 finally:
                     _close(mdf)
             if fallback_epoch_ids:
+                print(
+                    f"[voltage] Path {path_idx + 1}/{n_paths}: computing "
+                    f"{len(fallback_epoch_ids)} fallback epoch(s)...",
+                    flush=True,
+                )
                 fallback = transform_path_epochs(
                     output_path,
                     path_name,
@@ -1162,6 +1197,11 @@ def voltage(
             timing["total_s"] = time.perf_counter() - path_started
             summary["timing"]["path"][path_idx] = timing
             path_summary["timing"] = timing
+            print(
+                f"[voltage] Path {path_idx + 1}/{n_paths} complete "
+                f"in {timing['total_s']:.1f} s",
+                flush=True,
+            )
         summary["timing"]["total_s"] = time.perf_counter() - run_started
         if total_voltage_rois == 0:
             output_path.unlink(missing_ok=True)
@@ -1169,6 +1209,11 @@ def voltage(
                 "Voltage:NoVoltageROIs",
                 "No Voltage ROIs were found on any imaging path; no fluorescence data were extracted.",
             )
+        print(
+            f"[voltage] Extraction complete: {total_voltage_rois} voltage ROI(s) "
+            f"in {summary['timing']['total_s']:.1f} s",
+            flush=True,
+        )
         return summary
     except Exception as exc:
         cleanup_partial_output(output_path, exc)

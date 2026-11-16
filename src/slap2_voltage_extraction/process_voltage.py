@@ -108,6 +108,9 @@ def process_voltage(
         )
     save_dir.mkdir(parents=True, exist_ok=True)
 
+    print(f"[voltage] Session: {root}", flush=True)
+    print(f"[voltage] Output directory: {save_dir}", flush=True)
+
     action = str(existing_trial_table).strip().lower()
     if action not in {"reuse", "rebuild", "cancel"}:
         raise ValueError("existing_trial_table must be 'reuse', 'rebuild', or 'cancel'")
@@ -116,8 +119,10 @@ def process_voltage(
 
     trial_table_path = save_dir / "trial_table.h5"
     if trial_table_path.is_file() and action == "reuse":
+        print(f"[voltage] Reusing trial table: {trial_table_path}", flush=True)
         trial_table = load_struct_from_h5(trial_table_path)
     else:
+        print("[voltage] Discovering recordings and building trial table...", flush=True)
         trial_table = build_trial_table_slap2(
             root,
             save_dir,
@@ -136,6 +141,7 @@ def process_voltage(
             f"No trial table created: {trial_table_path}",
         )
     validate_process_trial_table(trial_table)
+    print("[voltage] Trial table validated; configuring extraction parameters...", flush=True)
 
     voltage_params = local_voltage_params(
         params_in,
@@ -161,6 +167,7 @@ def process_voltage(
         reader_factory=reader_factory,
     )
     final_trial_table = load_struct_from_h5(trial_table_path)
+    print(f"[voltage] Processing complete: {summary['output_path']}", flush=True)
     return summary, final_trial_table, voltage_params
 
 
