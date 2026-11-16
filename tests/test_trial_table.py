@@ -119,11 +119,12 @@ def _write_triggered(
     folder: Path,
     dmd1_counts: int | Sequence[int],
     dmd2_counts: int | Sequence[int],
+    prefix: str = "acq",
 ) -> tuple[list[str], list[str]]:
     first = _as_counts(dmd1_counts)
     second = _as_counts(dmd2_counts)
-    dmd1 = [f"acq_DMD1-TRIAL{k:06d}.dat" for k in range(1, len(first) + 1)]
-    dmd2 = [f"acq_DMD2-TRIAL{k:06d}.dat" for k in range(1, len(second) + 1)]
+    dmd1 = [f"{prefix}_DMD1-TRIAL{k:06d}.dat" for k in range(1, len(first) + 1)]
+    dmd2 = [f"{prefix}_DMD2-TRIAL{k:06d}.dat" for k in range(1, len(second) + 1)]
     for k, (name, count) in enumerate(zip(dmd1, first, strict=True), start=1):
         _write_dat(folder, name, count, START_TIME + timedelta(minutes=k))
     for k, (name, count) in enumerate(zip(dmd2, second, strict=True), start=1):
@@ -283,12 +284,27 @@ class TestBuildTrialTableSlap2:
         with pytest.raises(Exception):
             _build(data_root, save_dir, readers)
 
-    def test_aind_dynamic_data_layout(
+    def test_aind_slap2_layout(
         self, roots: tuple[Path, Path], readers: tuple[FakeDataReader, FakeTiffReader]
     ) -> None:
         data_root, save_dir = roots
-        dynamic = data_root / "dynamic_data"
-        dynamic.mkdir()
+        slap2 = data_root / "slap2"
+        slap2.mkdir()
+        dmd1, dmd2 = _write_triggered(slap2, 100_000, 100_000)
+        _write_references(data_root)
+
+        table = _build(data_root, save_dir, readers)
+
+        assert Path(table["datadr"]) == slap2
+        _assert_filenames(table["filename"], [dmd1, dmd2])
+        assert (save_dir / "trial_table.h5").is_file()
+
+    def test_aind_slap2_dynamic_data_layout(
+        self, roots: tuple[Path, Path], readers: tuple[FakeDataReader, FakeTiffReader]
+    ) -> None:
+        data_root, save_dir = roots
+        dynamic = data_root / "slap2" / "dynamic_data"
+        dynamic.mkdir(parents=True)
         dmd1, dmd2 = _write_triggered(dynamic, 100_000, 100_000)
         _write_references(data_root)
 
@@ -297,6 +313,23 @@ class TestBuildTrialTableSlap2:
         assert Path(table["datadr"]) == dynamic
         _assert_filenames(table["filename"], [dmd1, dmd2])
         assert (save_dir / "trial_table.h5").is_file()
+
+    def test_data_layout_precedence(
+        self, roots: tuple[Path, Path], readers: tuple[FakeDataReader, FakeTiffReader]
+    ) -> None:
+        data_root, save_dir = roots
+        slap2 = data_root / "slap2"
+        dynamic = slap2 / "dynamic_data"
+        dynamic.mkdir(parents=True)
+        _write_triggered(data_root, 100_000, 100_000, prefix="root")
+        _write_triggered(slap2, 100_000, 100_000, prefix="slap2")
+        dmd1, dmd2 = _write_triggered(dynamic, 100_000, 100_000, prefix="dynamic")
+        _write_references(data_root)
+
+        table = _build(data_root, save_dir, readers)
+
+        assert Path(table["datadr"]) == dynamic
+        _assert_filenames(table["filename"], [dmd1, dmd2])
 
     def test_reference_stack_metadata(
         self, roots: tuple[Path, Path], readers: tuple[FakeDataReader, FakeTiffReader]

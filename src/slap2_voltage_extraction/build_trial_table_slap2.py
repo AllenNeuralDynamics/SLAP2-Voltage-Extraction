@@ -90,6 +90,20 @@ def _rounded_edges(total: int, count: int) -> np.ndarray:
     return np.floor(values + 0.5).astype(np.int64)
 
 
+def _data_directory(root: Path) -> Path:
+    """Return the directory containing SLAP2 DAT files for supported session layouts."""
+
+    candidates = (root / "slap2" / "dynamic_data", root / "slap2", root)
+    for candidate in candidates:
+        if candidate.is_dir() and any(candidate.glob("*.dat")):
+            return candidate
+    searched = ", ".join(str(candidate) for candidate in candidates)
+    raise Slap2VoltageError(
+        "buildTrialTableSLAP2:NoDatFiles",
+        f"No SLAP2 .dat files found. Searched: {searched}",
+    )
+
+
 def build_trial_table_slap2(
     directory: str | Path,
     save_directory: str | Path | None = None,
@@ -103,7 +117,7 @@ def build_trial_table_slap2(
     root = Path(directory)
     save_dir = Path(save_directory) if save_directory is not None else root
     save_dir.mkdir(parents=True, exist_ok=True)
-    data_dir = root / "dynamic_data" if (root / "dynamic_data").is_dir() else root
+    data_dir = _data_directory(root)
     files = sorted(data_dir.glob("*.dat"), key=lambda path: path.stat().st_mtime)
     files = [
         path
@@ -112,7 +126,8 @@ def build_trial_table_slap2(
     ]
     if not files:
         raise Slap2VoltageError(
-            "buildTrialTableSLAP2:NoDatFiles", f"No SLAP2 .dat files found in: {data_dir}"
+            "buildTrialTableSLAP2:NoDatFiles",
+            f"No usable SLAP2 .dat files found in: {data_dir}",
         )
     if not use_all_files:
         # Interactive epoch selection has no headless equivalent. A caller that needs
