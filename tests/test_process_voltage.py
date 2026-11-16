@@ -107,6 +107,18 @@ def test_empty_builder_result_uses_requested_policy(
     ]
 
 
+def test_headless_default_processes_all_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    builder = install_builder(monkeypatch, "missing-file")
+
+    with pytest.raises(ValueError) as caught:
+        process_voltage(tmp_path, tmp_path, params_in={}, show_params_gui=False)
+
+    assert_error_code(caught.value, "processVoltage:MissingTrialTable")
+    assert builder.calls[0]["use_all_files"] is True
+
+
 def test_builder_must_create_trial_table_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

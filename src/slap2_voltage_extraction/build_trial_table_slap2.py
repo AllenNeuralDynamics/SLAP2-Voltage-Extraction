@@ -107,12 +107,16 @@ def _data_directory(root: Path) -> Path:
 def build_trial_table_slap2(
     directory: str | Path,
     save_directory: str | Path | None = None,
-    use_all_files: bool = False,
+    use_all_files: bool = True,
     *,
     data_reader: Callable[[str | Path], object] | None = None,
     tiff_reader: Callable[[str | Path], tuple[np.ndarray, str, list[Any]]] | None = None,
 ) -> dict[str, Any]:
-    """Build and write the GIAnT-compatible one-based inclusive trial table."""
+    """Build and write the GIAnT-compatible one-based inclusive trial table.
+
+    All discovered acquisitions are processed by default because this API has
+    no interactive epoch-selection frontend.
+    """
 
     root = Path(directory)
     save_dir = Path(save_directory) if save_directory is not None else root

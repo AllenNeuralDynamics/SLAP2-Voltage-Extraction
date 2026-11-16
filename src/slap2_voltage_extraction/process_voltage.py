@@ -79,7 +79,7 @@ def validate_process_trial_table(trial_table: Mapping[str, Any]) -> None:
 def process_voltage(
     directory: str | Path,
     save_directory: str | Path | None = None,
-    use_all_files: bool = False,
+    use_all_files: bool = True,
     params_in: object | None = None,
     show_params_gui: bool = True,
     *,
@@ -91,8 +91,9 @@ def process_voltage(
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, object]]:
     """Build/reuse a trial table, configure parameters, and run extraction.
 
-    ``existing_trial_table`` accepts ``"reuse"``, ``"rebuild"``, or
-    ``"cancel"``. ``option_updates`` is passed
+    ``use_all_files`` defaults to true because the Python workflow is
+    headless. ``existing_trial_table`` accepts ``"reuse"``, ``"rebuild"``,
+    or ``"cancel"``. ``option_updates`` is passed
     to the headless :func:`options_gui` adapter when ``show_params_gui`` is true.
     """
 

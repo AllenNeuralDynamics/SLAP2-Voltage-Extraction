@@ -35,6 +35,9 @@ summary, trial_table, params = process_voltage(
 )
 ```
 
+The headless workflow processes all discovered acquisition files by default.
+Pass `use_all_files=False` only when integrating a separate interactive epoch-selection frontend.
+
 The package root exposes:
 
 - `voltage`
