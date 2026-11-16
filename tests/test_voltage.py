@@ -74,7 +74,7 @@ class FakeMultiDataFiles:
             DataFile(
                 str(path),
                 np.asarray([12.5], dtype=np.float64),
-                [np.asarray([[0, replacement]], dtype=np.uint32)],
+                [np.asarray([[0], [replacement]], dtype=np.uint32)],
             )
         ]
 

@@ -219,12 +219,13 @@ def build_acquisition_roi_mask(roi: object, n_rows: int, n_cols: int, source_roi
             )
     else:
         shape = np.asarray(_get(roi, "shape_data", "shapeData", default=[]), dtype=np.float64)
-        if shape.ndim != 2 or shape.shape[1] < 2 or shape.size == 0:
+        if shape.ndim != 2 or shape.shape[0] != 2 or shape.size == 0:
             raise _error(
                 "Voltage:MissingRoiMask",
                 f"Acquisition ROI {source_roi_idx + 1} has no usable mask/shapeData.",
             )
-        coordinates = np.rint(shape[:, :2]).astype(np.int64) - 1
+        # slap2_utils shapeData is 2 x N: row coordinates followed by columns.
+        coordinates = np.rint(shape).astype(np.int64).T - 1
         valid = (
             (coordinates[:, 0] >= 0)
             & (coordinates[:, 0] < n_rows)

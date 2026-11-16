@@ -13,6 +13,30 @@ def _dmd_dimensions(multi_data_files: object) -> tuple[int, int]:
     return int(header["dmdPixelsPerRow"]), int(header["dmdPixelsPerColumn"])
 
 
+def _normalize_pixel_replacement_map(value: object) -> np.ndarray:
+    """Return a replacement map in the ``slap2_utils`` canonical ``(2, N)`` shape."""
+    replacement = np.asarray(value, dtype=np.uint32).copy()
+    if replacement.size == 0:
+        return np.zeros((2, 0), dtype=np.uint32)
+    if replacement.ndim == 1:
+        if replacement.size % 2:
+            raise ValueError(
+                "A one-dimensional zPixelReplacementMaps entry must have even length"
+            )
+        return replacement.reshape(2, -1)
+    if replacement.ndim != 2:
+        raise ValueError(
+            "zPixelReplacementMaps entries must be one- or two-dimensional"
+        )
+    if replacement.shape[0] == 2:
+        return replacement
+    if replacement.shape[1] == 2:
+        return replacement.T.copy()
+    raise ValueError(
+        "zPixelReplacementMaps entries must have shape (2, N) or (N, 2)"
+    )
+
+
 class Trace:
     def __init__(self, multi_data_files: object, z_idx: int = 0, ch_idx: int = 0) -> None:
         self.multi_data_files = multi_data_files
@@ -67,23 +91,24 @@ class Trace:
 
     def _get_trace_pixels(self, pixel_idxs: np.ndarray) -> list[TracePixel]:
         requested = np.unique(pixel_idxs.astype(np.uint32))
-        replacement = np.asarray(
+        replacement = _normalize_pixel_replacement_map(
             self.multi_data_files.hDataFiles[0].zPixelReplacementMaps[  # type: ignore[attr-defined]
                 self.z_idx
-            ],
-            dtype=np.uint32,
-        ).copy()
+            ]
+        )
         header = self.multi_data_files.header  # type: ignore[attr-defined]
         rows, columns = _dmd_dimensions(self.multi_data_files)
         dmd_pixels = rows * columns
-        integration = replacement[:, 1] >= dmd_pixels
-        replacement[integration, 0] += dmd_pixels
-        by_pixel = {int(source): int(target) for source, target in replacement}
+        integration = replacement[1, :] >= dmd_pixels
+        replacement[0, integration] += dmd_pixels
+        by_pixel = dict(
+            zip(replacement[0, :].tolist(), replacement[1, :].tolist(), strict=True)
+        )
         mapped = [by_pixel[int(index)] for index in requested if int(index) in by_pixel]
         if not mapped:
             return []
         super_ids, selected_counts = np.unique(mapped, return_counts=True)
-        all_ids, all_counts = np.unique(replacement[:, 1], return_counts=True)
+        all_ids, all_counts = np.unique(replacement[1, :], return_counts=True)
         full_counts = dict(zip(all_ids.tolist(), all_counts.tolist(), strict=True))
         files = [
             str(item.filename)

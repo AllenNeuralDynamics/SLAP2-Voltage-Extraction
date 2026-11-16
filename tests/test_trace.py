@@ -48,8 +48,8 @@ def mapping_source() -> FakeMultiDataFiles:
                 [
                     np.asarray(
                         [
-                            [0, 1], [1, 1], [2, 2], [3, 3], [4, 4], [5, 5],
-                            [0, 6], [1, 6], [2, 7], [3, 8], [4, 9], [5, 10],
+                            [0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5],
+                            [1, 1, 2, 3, 4, 5, 6, 6, 7, 8, 9, 10],
                         ],
                         dtype=np.uint32,
                     )
@@ -79,7 +79,7 @@ def processing_source(filename: Path) -> FakeMultiDataFiles:
         },
         metaData=object(),
         hDataFiles=[
-            DataFile(str(filename), [np.asarray([[0, 1]], dtype=np.uint32)])
+            DataFile(str(filename), [np.asarray([[0], [1]], dtype=np.uint32)])
         ],
         lineSuperPixelIDs=[
             np.asarray([1], dtype=np.uint32),
@@ -153,6 +153,51 @@ class TestTrace:
 
         np.testing.assert_array_equal(trace.pixel_idxs, np.asarray([0, 98], dtype=np.uint32))
         np.testing.assert_array_equal(trace.super_pixel_ids, [1])
+
+    @pytest.mark.parametrize(
+        "replacement",
+        [
+            np.asarray([[0, 1], [1, 1]], dtype=np.uint32),
+            np.asarray([0, 1, 1, 1], dtype=np.uint32),
+        ],
+    )
+    def test_supported_replacement_map_representations_are_normalized(
+        self, replacement: np.ndarray
+    ) -> None:
+        source = mapping_source()
+        source.hDataFiles[0].zPixelReplacementMaps[0] = replacement
+
+        trace = Trace(source)
+        trace.set_pixel_idxs([0, 1], [])
+
+        np.testing.assert_array_equal(trace.super_pixel_ids, [1])
+        assert trace.trace_pixels[0].super_pixel_num_pixels == 2
+
+    def test_empty_replacement_map_produces_no_trace_pixels(self) -> None:
+        source = mapping_source()
+        source.hDataFiles[0].zPixelReplacementMaps[0] = np.empty((0, 0))
+
+        trace = Trace(source)
+        trace.set_pixel_idxs([0], [])
+
+        assert not trace.trace_pixels
+
+    @pytest.mark.parametrize(
+        "replacement",
+        [
+            np.asarray([0, 1, 2], dtype=np.uint32),
+            np.zeros((3, 3), dtype=np.uint32),
+            np.zeros((2, 2, 2), dtype=np.uint32),
+        ],
+    )
+    def test_invalid_replacement_map_shape_fails_clearly(
+        self, replacement: np.ndarray
+    ) -> None:
+        source = mapping_source()
+        source.hDataFiles[0].zPixelReplacementMaps[0] = replacement
+
+        with pytest.raises(ValueError, match="zPixelReplacementMaps"):
+            Trace(source).set_pixel_idxs([0], [])
 
     def test_repeated_selection_does_not_duplicate_trace_pixels(self) -> None:
         trace = Trace(mapping_source())
