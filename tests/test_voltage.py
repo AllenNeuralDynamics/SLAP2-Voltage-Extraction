@@ -16,17 +16,10 @@ save_struct_to_h5 = hdf5_module.save_struct_to_h5
 
 
 @dataclass
-class Header:
-    dmd_pixels_per_row: int = 2
-    dmd_pixels_per_column: int = 2
-    bytes_per_cycle: int = 16
-    first_cycle_offset_bytes: int = 0
-    lines_per_cycle: int = 8
-
-
-@dataclass
 class DataFile:
     filename: str
+    fastZs: np.ndarray
+    zPixelReplacementMaps: list[np.ndarray]
 
 
 class FakeMultiDataFiles:
@@ -36,33 +29,54 @@ class FakeMultiDataFiles:
         path = Path(filename)
         if not path.is_file():
             raise FileNotFoundError(f"Fake raw data file does not exist: {path}")
-        roi = {
-            "mask": np.asarray([[True, False], [False, False]], dtype=bool),
-            # Deliberately not "Integrate": classification must use parse-plan membership.
-            "imagingMode": "test-double",
-        }
-        self.metadata = {
-            "dmdPixelsPerRow": 2,
-            "dmdPixelsPerColumn": 2,
-            "samplesPerLine": 1,
-            "channelsSave": 1,
-            "linePeriod_s": 0.001,
-            "AcquisitionContainer": {
-                "ROIs": {"rois": [roi]},
+        roi = type(
+            "ROI",
+            (),
+            {
+                "mask": np.asarray([[True, False], [False, False]], dtype=bool),
+                # Deliberately not "Integrate": classification uses parse-plan membership.
+                "imageMode": "test-double",
+            },
+        )()
+        acquisition = type(
+            "AcquisitionContainer",
+            (),
+            {
+                "ROIs": [roi],
                 "ParsePlan": {"lineRateHz": 1000, "zs": np.asarray([12.5])},
             },
+        )()
+        self.metaData = type(
+            "MetaData",
+            (),
+            {
+                "dmdPixelsPerRow": 2,
+                "dmdPixelsPerColumn": 2,
+                "samplesPerLine": 1,
+                "channelsSave": 1,
+                "linePeriod_s": 0.001,
+                "AcquisitionContainer": acquisition,
+            },
+        )()
+        self.header = {
+            "dmdPixelsPerRow": 2,
+            "dmdPixelsPerColumn": 2,
+            "bytesPerCycle": 16,
+            "firstCycleOffsetBytes": 0,
+            "linesPerCycle": 8,
         }
-        # Alias retained for readers that expose the established meta_data spelling.
-        self.meta_data = self.metadata
-        self.fast_zs = np.asarray([12.5], dtype=np.float64)
-        self.header = Header()
-        self.line_super_pixel_ids = [np.asarray([5], dtype=np.uint32) for _ in range(8)]
-        self.line_fast_z_idxs = np.zeros(8, dtype=np.int64)
+        self.lineSuperPixelIDs = [np.asarray([5], dtype=np.uint32) for _ in range(8)]
+        self.lineFastZIdxs = np.zeros(8, dtype=np.int64)
         # Public positions use the established one-based int16 sample contract.
-        self.line_data_start_idxs = np.arange(1, 9, dtype=np.int64)
-        self.h_data_files = [DataFile(str(path))]
+        self.lineDataStartIdxs = np.arange(1, 9, dtype=np.int64)
         replacement = 1 if "no_voltage" in path.name.lower() else 5
-        self.z_pixel_replacement_maps = [np.asarray([[0, replacement]], dtype=np.uint32)]
+        self.hDataFiles = [
+            DataFile(
+                str(path),
+                np.asarray([12.5], dtype=np.float64),
+                [np.asarray([[0, replacement]], dtype=np.uint32)],
+            )
+        ]
 
     def close(self) -> None:
         pass

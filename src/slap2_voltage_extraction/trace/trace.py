@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from concurrent.futures import Executor, Future
-from typing import Any
-
 import numpy as np
 
 from .trace_pixel import TracePixel
+
+
+def _dmd_dimensions(multi_data_files: object) -> tuple[int, int]:
+    header = multi_data_files.header  # type: ignore[attr-defined]
+    return int(header["dmdPixelsPerRow"]), int(header["dmdPixelsPerColumn"])
 
 
 class Trace:
@@ -24,8 +27,7 @@ class Trace:
 
     def _logical_indices(self, value: object, integration: bool) -> np.ndarray:
         array = np.asarray(value)
-        rows = int(self.multi_data_files.header.dmd_pixels_per_row)
-        columns = int(self.multi_data_files.header.dmd_pixels_per_column)
+        rows, columns = _dmd_dimensions(self.multi_data_files)
         # MATLAB lineage: accept masks whose row and column axes arrive transposed.
         if array.shape == (columns, rows) and columns != rows:
             array = array.T
@@ -65,11 +67,15 @@ class Trace:
 
     def _get_trace_pixels(self, pixel_idxs: np.ndarray) -> list[TracePixel]:
         requested = np.unique(pixel_idxs.astype(np.uint32))
-        replacement = np.asarray(self.multi_data_files.z_pixel_replacement_maps[self.z_idx], dtype=np.uint32).copy()
-        dmd_pixels = (
-            int(self.multi_data_files.header.dmd_pixels_per_row)
-            * int(self.multi_data_files.header.dmd_pixels_per_column)
-        )
+        replacement = np.asarray(
+            self.multi_data_files.hDataFiles[0].zPixelReplacementMaps[  # type: ignore[attr-defined]
+                self.z_idx
+            ],
+            dtype=np.uint32,
+        ).copy()
+        header = self.multi_data_files.header  # type: ignore[attr-defined]
+        rows, columns = _dmd_dimensions(self.multi_data_files)
+        dmd_pixels = rows * columns
         integration = replacement[:, 1] >= dmd_pixels
         replacement[integration, 0] += dmd_pixels
         by_pixel = {int(source): int(target) for source, target in replacement}
@@ -79,13 +85,16 @@ class Trace:
         super_ids, selected_counts = np.unique(mapped, return_counts=True)
         all_ids, all_counts = np.unique(replacement[:, 1], return_counts=True)
         full_counts = dict(zip(all_ids.tolist(), all_counts.tolist(), strict=True))
-        files = [str(item.filename) for item in self.multi_data_files.h_data_files]
+        files = [
+            str(item.filename)
+            for item in self.multi_data_files.hDataFiles  # type: ignore[attr-defined]
+        ]
         pixels = [
             TracePixel(
                 file_names=files,
-                first_cycle_offset_bytes=int(self.multi_data_files.header.first_cycle_offset_bytes),
-                bytes_per_cycle=int(self.multi_data_files.header.bytes_per_cycle),
-                lines_per_cycle=int(self.multi_data_files.header.lines_per_cycle),
+                first_cycle_offset_bytes=int(header["firstCycleOffsetBytes"]),
+                bytes_per_cycle=int(header["bytesPerCycle"]),
+                lines_per_cycle=int(header["linesPerCycle"]),
                 super_pixel_id=int(super_id),
                 super_pixel_num_pixels=np.float32(full_counts[int(super_id)]),
                 super_pixel_num_pixels_selected=np.float32(selected),
@@ -93,8 +102,11 @@ class Trace:
             for super_id, selected in zip(super_ids, selected_counts, strict=True)
         ]
         by_id = {pixel.super_pixel_id: pixel for pixel in pixels}
-        for line_index, line_ids in enumerate(self.multi_data_files.line_super_pixel_ids):
-            if int(self.multi_data_files.line_fast_z_idxs[line_index]) != self.z_idx:
+        line_super_pixel_ids = self.multi_data_files.lineSuperPixelIDs  # type: ignore[attr-defined]
+        line_fast_z_idxs = self.multi_data_files.lineFastZIdxs  # type: ignore[attr-defined]
+        line_data_start_idxs = self.multi_data_files.lineDataStartIdxs  # type: ignore[attr-defined]
+        for line_index, line_ids in enumerate(line_super_pixel_ids):
+            if int(line_fast_z_idxs[line_index]) != self.z_idx:
                 continue
             ids = np.asarray(line_ids, dtype=np.uint32).reshape(-1)
             for super_id in super_ids:
@@ -104,8 +116,8 @@ class Trace:
                 offset = int(matches[0]) * 2
                 offset += ids.size * 2 * self.ch_idx
                 # MATLAB lineage: line_data_start_idxs retains the reader's one-based int16 position.
-                offset += int(self.multi_data_files.line_data_start_idxs[line_index]) * 2
-                offset -= int(self.multi_data_files.header.first_cycle_offset_bytes)
+                offset += int(line_data_start_idxs[line_index]) * 2
+                offset -= int(header["firstCycleOffsetBytes"])
                 pixel = by_id[int(super_id)]
                 pixel.byte_offsets = np.append(pixel.byte_offsets, np.uint32(offset))
                 pixel.line_idxs = np.append(pixel.line_idxs, np.uint32(line_index))

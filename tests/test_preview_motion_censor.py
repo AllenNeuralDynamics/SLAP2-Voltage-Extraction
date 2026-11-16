@@ -15,9 +15,9 @@ class FakeMotionReader:
         path = Path(filename)
         if not path.is_file():
             raise FileNotFoundError(path)
-        self.metadata = {"line_period_s": 0.001}
-        self.line_header_idxs = np.arange(8)
-        self.num_cycles = 2
+        self.metaData = type("MetaData", (), {"linePeriod_s": 0.001})()
+        self.lineHeaderIdxs = np.arange(8)
+        self.numCycles = 2
         self.closed = False
 
     def get_online_motion(

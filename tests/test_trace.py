@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -15,68 +15,78 @@ Trace = trace_module.Trace
 
 
 @dataclass
-class Header:
-    dmd_pixels_per_row: int
-    dmd_pixels_per_column: int
-    bytes_per_cycle: int
-    first_cycle_offset_bytes: int
-    lines_per_cycle: int
-
-
-@dataclass
 class DataFile:
     filename: str
+    zPixelReplacementMaps: list[np.ndarray]
 
 
 @dataclass
 class FakeMultiDataFiles:
-    """Concrete-compatible metadata surface read by Trace."""
+    """Canonical camelCase surface exported by slap2_utils.MultiDataFiles."""
 
-    header: Header
-    z_pixel_replacement_maps: list[np.ndarray]
-    h_data_files: list[DataFile]
-    line_super_pixel_ids: list[np.ndarray]
-    line_fast_z_idxs: np.ndarray
-    line_data_start_idxs: np.ndarray
-    metadata: dict[str, Any] = field(default_factory=dict)
-    fast_zs: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.float64))
+    header: dict[str, int]
+    metaData: Any
+    hDataFiles: list[DataFile]
+    lineSuperPixelIDs: list[np.ndarray]
+    lineFastZIdxs: np.ndarray
+    lineDataStartIdxs: np.ndarray
 
 
 def mapping_source() -> FakeMultiDataFiles:
     return FakeMultiDataFiles(
-        header=Header(3, 2, 64, 2, 4),
-        z_pixel_replacement_maps=[
-            np.asarray(
+        header={
+            "dmdPixelsPerRow": 3,
+            "dmdPixelsPerColumn": 2,
+            "bytesPerCycle": 64,
+            "firstCycleOffsetBytes": 2,
+            "linesPerCycle": 4,
+        },
+        metaData=object(),
+        hDataFiles=[
+            DataFile(
+                "first.dat",
                 [
-                    [0, 1], [1, 1], [2, 2], [3, 3], [4, 4], [5, 5],
-                    [0, 6], [1, 6], [2, 7], [3, 8], [4, 9], [5, 10],
+                    np.asarray(
+                        [
+                            [0, 1], [1, 1], [2, 2], [3, 3], [4, 4], [5, 5],
+                            [0, 6], [1, 6], [2, 7], [3, 8], [4, 9], [5, 10],
+                        ],
+                        dtype=np.uint32,
+                    )
                 ],
-                dtype=np.uint32,
-            )
+            ),
+            DataFile("second.dat", []),
         ],
-        h_data_files=[DataFile("first.dat"), DataFile("second.dat")],
-        line_super_pixel_ids=[
+        lineSuperPixelIDs=[
             np.asarray([1, 2, 6], dtype=np.uint32),
             np.asarray([2, 1], dtype=np.uint32),
             np.asarray([6, 1], dtype=np.uint32),
             np.asarray([1], dtype=np.uint32),
         ],
-        line_fast_z_idxs=np.asarray([0, 0, 1, 0]),
-        line_data_start_idxs=np.asarray([1, 10, 20, 30]),
+        lineFastZIdxs=np.asarray([0, 0, 1, 0]),
+        lineDataStartIdxs=np.asarray([1, 10, 20, 30]),
     )
 
 
 def processing_source(filename: Path) -> FakeMultiDataFiles:
     return FakeMultiDataFiles(
-        header=Header(2, 2, 8, 0, 2),
-        z_pixel_replacement_maps=[np.asarray([[0, 1]], dtype=np.uint32)],
-        h_data_files=[DataFile(str(filename))],
-        line_super_pixel_ids=[
+        header={
+            "dmdPixelsPerRow": 2,
+            "dmdPixelsPerColumn": 2,
+            "bytesPerCycle": 8,
+            "firstCycleOffsetBytes": 0,
+            "linesPerCycle": 2,
+        },
+        metaData=object(),
+        hDataFiles=[
+            DataFile(str(filename), [np.asarray([[0, 1]], dtype=np.uint32)])
+        ],
+        lineSuperPixelIDs=[
             np.asarray([1], dtype=np.uint32),
             np.asarray([1], dtype=np.uint32),
         ],
-        line_fast_z_idxs=np.asarray([0, 0]),
-        line_data_start_idxs=np.asarray([1, 3]),
+        lineFastZIdxs=np.asarray([0, 0]),
+        lineDataStartIdxs=np.asarray([1, 3]),
     )
 
 

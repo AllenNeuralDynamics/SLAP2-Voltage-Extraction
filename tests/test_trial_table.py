@@ -21,10 +21,11 @@ START_TIME = datetime(2024, 2, 1, 12, 0, 0, tzinfo=timezone.utc)
 MTIME_ATOL_S = 1e-9 * 86_400
 
 
-@dataclass(frozen=True)
 class FakeDataFile:
-    total_num_lines: int
-    line_period_s: float = LINE_PERIOD_S
+    def __init__(self, total_num_lines: int, line_period_s: float = LINE_PERIOD_S) -> None:
+        self.numCycles = 1
+        self.header = {"linesPerCycle": total_num_lines}
+        self.metaData = type("MetaData", (), {"linePeriod_s": line_period_s})()
 
 
 class FakeDataReader:
@@ -149,6 +150,12 @@ def _mtime(folder: Path, name: str) -> float:
 
 
 class TestBuildTrialTableSlap2:
+    def test_slap2_utils_data_file_line_count_and_period(self) -> None:
+        count, period = trial_table._line_count_and_period(FakeDataFile(100_000))
+
+        assert count == 100_000
+        assert period == LINE_PERIOD_S
+
     def test_triggered_trials(
         self, roots: tuple[Path, Path], readers: tuple[FakeDataReader, FakeTiffReader]
     ) -> None:

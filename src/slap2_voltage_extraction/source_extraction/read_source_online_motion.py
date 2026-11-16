@@ -1,16 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
-
 import numpy as np
-
-
-def _get_attr(value: object, *names: str) -> Any:
-    for name in names:
-        if hasattr(value, name):
-            return getattr(value, name)
-    joined = " or ".join(repr(name) for name in names)
-    raise AttributeError(f"Expected motion source attribute {joined}")
 
 
 def read_source_online_motion(
@@ -20,10 +10,13 @@ def read_source_online_motion(
 ) -> dict[str, object]:
     """Read uniformly sampled online motion offsets from SLAP2 line headers.
 
-    ``multi_data_files`` is duck typed. It must expose line-header indices,
-    cycle count, and either ``get_online_motion(line_ids)`` or
-    ``getOnlineMotion(line_ids)``. Line IDs passed to Python readers are
-    zero-based.
+    ``multi_data_files`` must expose canonical ``slap2_utils`` line-header
+    indices and cycle count. The current ``slap2_utils`` backend does not
+    implement online-motion access, so motion censoring requires an injected
+    reader extension. This package preserves both extension namespaces:
+    ``get_online_motion`` receives zero-based line IDs, while the historical
+    ``getOnlineMotion`` compatibility path receives one-based line IDs. The
+    latter is not a contract provided by ``slap2_utils`` itself.
     """
 
     if (
@@ -43,9 +36,9 @@ def read_source_online_motion(
         raise ValueError("line_rate_hz must be a positive finite real scalar")
     rate = float(line_rate_hz)
 
-    header_indices = _get_attr(multi_data_files, "line_header_idxs", "lineHeaderIdxs")
+    header_indices = multi_data_files.lineHeaderIdxs  # type: ignore[attr-defined]
     lines_per_cycle = len(header_indices)
-    num_cycles = int(_get_attr(multi_data_files, "num_cycles", "numCycles"))
+    num_cycles = int(multi_data_files.numCycles)  # type: ignore[attr-defined]
     sample_count = min(int(samples_per_cycle), lines_per_cycle)
     within_cycle = np.unique(
         np.floor(np.arange(sample_count) * lines_per_cycle / sample_count).astype(np.int64)
@@ -61,8 +54,10 @@ def read_source_online_motion(
         reader = getattr(multi_data_files, "getOnlineMotion", None)
         legacy_reader = reader is not None
     if reader is None:
-        raise AttributeError("multi_data_files must expose get_online_motion(line_ids)")
-    # MATLAB lineage: legacy getOnlineMotion readers consume one-based line identifiers.
+        raise AttributeError(
+            "The SLAP2 reader does not support online-motion access; "
+            "online motion censoring is unavailable with this backend."
+        )
     reader_line_ids = line_ids + 1 if legacy_reader else line_ids
     x, y, z = reader(reader_line_ids)
 

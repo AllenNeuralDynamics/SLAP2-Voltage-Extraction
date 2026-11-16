@@ -20,26 +20,18 @@ MULTICYCLE_LINES_PER_TRIAL = 200_000
 
 def _default_data_reader(path: str | Path) -> object:
     try:
-        from slap2 import Slap2DataFile  # type: ignore[import-not-found]
+        from slap2_utils import DataFile  # type: ignore[import-not-found]
     except ImportError as exc:
         raise ImportError(
-            "A SLAP2 data reader is required; pass data_reader or install the slap2 reader."
+            "A SLAP2 data reader is required; pass data_reader or install slap2-utils."
         ) from exc
-    return Slap2DataFile(str(path))
+    return DataFile(str(path))
 
 
 def _line_count_and_period(reader: object) -> tuple[int, float]:
-    count = int(getattr(reader, "total_num_lines", getattr(reader, "totalNumLines", 0)))
-    if hasattr(reader, "line_period_s"):
-        return count, float(reader.line_period_s)
-    for container_name in ("hDataFile", "hMultiDataFiles"):
-        container = getattr(reader, container_name, None)
-        if container is not None:
-            metadata = getattr(container, "metadata", getattr(container, "metaData", None))
-            if isinstance(metadata, dict):
-                return count, float(metadata.get("line_period_s", metadata["linePeriod_s"]))
-            return count, float(getattr(metadata, "line_period_s", getattr(metadata, "linePeriod_s")))
-    raise ValueError("Could not read data-file line period")
+    header = reader.header  # type: ignore[attr-defined]
+    count = int(reader.numCycles) * int(header["linesPerCycle"])  # type: ignore[attr-defined]
+    return count, float(reader.metaData.linePeriod_s)  # type: ignore[attr-defined]
 
 
 def _reference_file(root: Path, dmd: int) -> Path:

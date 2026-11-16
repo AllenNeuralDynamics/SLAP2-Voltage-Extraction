@@ -20,7 +20,7 @@ With pip:
 python -m pip install .
 ```
 
-The low-level SLAP2 binary reader remains an external dependency. Public functions also accept injected reader factories for testing and specialized deployments.
+The low-level SLAP2 binary reader is provided by the `slap2-utils` dependency. Public functions also accept injected reader factories for testing and specialized deployments.
 
 ## Python API
 

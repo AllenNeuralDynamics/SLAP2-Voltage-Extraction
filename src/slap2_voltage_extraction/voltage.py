@@ -30,7 +30,7 @@ from .source_extraction import (
 from .exceptions import Slap2VoltageError
 
 try:
-    from slap2 import MultiDataFiles as MultiDataFiles  # type: ignore[import-not-found]
+    from slap2_utils import MultiDataFiles as MultiDataFiles  # type: ignore[import-not-found]
 except ImportError:
     MultiDataFiles = None  # type: ignore[assignment,misc]
 
@@ -64,7 +64,7 @@ def _reader_factory(factory: ReaderFactory | None) -> ReaderFactory:
     if selected is None:
         raise _error(
             "Voltage:MissingSLAP2Reader",
-            "Cannot resolve slap2.MultiDataFiles. Install the full SLAP2 binary reader package.",
+            "Cannot resolve slap2_utils.MultiDataFiles. Install slap2-utils.",
         )
     return selected
 
@@ -263,10 +263,8 @@ def safe_roi_mode_string(value: object) -> str:
 def discover_voltage_rois(
     multi_data_files: object, z_idx: int, ch_idx: int
 ) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
-    metadata = _get(multi_data_files, "metadata", "meta_data", "metaData")
-    acquisition = _get(metadata, "AcquisitionContainer")
-    roi_container = _get(acquisition, "ROIs")
-    rois = _get(roi_container, "rois")
+    metadata = multi_data_files.metaData  # type: ignore[attr-defined]
+    rois = metadata.AcquisitionContainer.ROIs
     if rois is None:
         raise _error(
             "Voltage:MissingAcquisitionROIs",
@@ -278,15 +276,15 @@ def discover_voltage_rois(
         roi_items = list(rois)
     else:
         roi_items = [rois]
-    n_rows = int(_get(metadata, "dmd_pixels_per_column", "dmdPixelsPerColumn"))
-    n_cols = int(_get(metadata, "dmd_pixels_per_row", "dmdPixelsPerRow"))
+    n_rows = int(metadata.dmdPixelsPerColumn)
+    n_cols = int(metadata.dmdPixelsPerRow)
     masks: list[np.ndarray] = []
     source_indices: list[int] = []
     counts: list[int] = []
     modes: list[str] = []
     for source_index, roi in enumerate(roi_items):
         mask = build_acquisition_roi_mask(roi, n_rows, n_cols, source_index)
-        modes.append(safe_roi_mode_string(_get(roi, "imaging_mode", "imagingMode", default="")))
+        modes.append(safe_roi_mode_string(_get(roi, "imageMode", default="")))
         trace = Trace(multi_data_files, z_idx, ch_idx)
         trace.set_pixel_idxs((), mask)
         count = len(trace.trace_pixels)
@@ -312,13 +310,13 @@ def discover_voltage_rois(
 
 
 def resolve_sample_rate_hz(multi_data_files: object) -> float:
-    metadata = _get(multi_data_files, "metadata", "meta_data", "metaData")
-    period = _get(metadata, "line_period_s", "linePeriod_s")
+    metadata = multi_data_files.metaData  # type: ignore[attr-defined]
+    period = metadata.linePeriod_s
     if period is not None and np.asarray(period).size:
         rate = 1.0 / float(np.asarray(period).reshape(-1)[0])
     else:
-        parse_plan = _get(_get(metadata, "AcquisitionContainer"), "ParsePlan")
-        rate_value = _get(parse_plan, "line_rate_hz", "lineRateHz")
+        parse_plan = metadata.AcquisitionContainer.ParsePlan
+        rate_value = parse_plan.get("lineRateHz")
         if rate_value is None:
             raise _error("Voltage:MissingSampleRate", "Could not resolve SLAP2 line/sample rate.")
         rate = float(rate_value)
@@ -328,40 +326,41 @@ def resolve_sample_rate_hz(multi_data_files: object) -> float:
 
 
 def resolve_z_depth(multi_data_files: object) -> float:
-    values = _get(multi_data_files, "fast_zs", "fastZs")
+    values = multi_data_files.hDataFiles[0].fastZs  # type: ignore[attr-defined]
     if values is None or not np.asarray(values).size:
-        metadata = _get(multi_data_files, "metadata", "meta_data", "metaData")
-        parse_plan = _get(_get(metadata, "AcquisitionContainer"), "ParsePlan")
-        values = _get(parse_plan, "zs", default=[])
+        metadata = multi_data_files.metaData  # type: ignore[attr-defined]
+        values = metadata.AcquisitionContainer.ParsePlan.get("zs", [])
     array = np.asarray(values, dtype=np.float64).reshape(-1)
     return float(array[0]) if array.size else float("nan")
 
 
 def get_geometry_meta(multi_data_files: object) -> dict[str, Any]:
-    metadata = _get(multi_data_files, "metadata", "meta_data", "metaData")
-    header = _get(multi_data_files, "header")
+    metadata = multi_data_files.metaData  # type: ignore[attr-defined]
+    header = multi_data_files.header  # type: ignore[attr-defined]
     return {
-        "dmd_pixels_per_row": _get(metadata, "dmd_pixels_per_row", "dmdPixelsPerRow"),
-        "dmd_pixels_per_column": _get(metadata, "dmd_pixels_per_column", "dmdPixelsPerColumn"),
-        "samples_per_line": _get(metadata, "samples_per_line", "samplesPerLine"),
-        "channels_save": _get(metadata, "channels_save", "channelsSave"),
-        "lines_per_cycle": _get(header, "lines_per_cycle", "linesPerCycle"),
+        "dmd_pixels_per_row": metadata.dmdPixelsPerRow,
+        "dmd_pixels_per_column": metadata.dmdPixelsPerColumn,
+        "samples_per_line": metadata.samplesPerLine,
+        "channels_save": metadata.channelsSave,
+        "lines_per_cycle": header["linesPerCycle"],
     }
 
 
 def validate_parse_plan_compatibility(multi_data_files: object, path_idx: int) -> None:
-    for snake, camel in (
-        ("line_super_pixel_ids", "lineSuperPixelIDs"),
-        ("line_fast_z_idxs", "lineFastZIdxs"),
-        ("z_pixel_replacement_maps", "zPixelReplacementMaps"),
-    ):
-        if _get(multi_data_files, snake, camel) is None:
+    for name in ("lineSuperPixelIDs", "lineFastZIdxs"):
+        if getattr(multi_data_files, name, None) is None:
             raise _error(
                 "Voltage:ParsePlanMissingField",
-                f"Path{path_idx + 1} MultiDataFiles is missing {snake}.",
+                f"Path{path_idx + 1} MultiDataFiles is missing {name}.",
             )
-    if not len(_get(multi_data_files, "z_pixel_replacement_maps", "zPixelReplacementMaps")) or not len(
-        _get(multi_data_files, "line_super_pixel_ids", "lineSuperPixelIDs")
+    data_files = getattr(multi_data_files, "hDataFiles", None)
+    if not data_files or getattr(data_files[0], "zPixelReplacementMaps", None) is None:
+        raise _error(
+            "Voltage:ParsePlanMissingField",
+            f"Path{path_idx + 1} DataFile is missing zPixelReplacementMaps.",
+        )
+    if not len(data_files[0].zPixelReplacementMaps) or not len(
+        multi_data_files.lineSuperPixelIDs  # type: ignore[attr-defined]
     ):
         raise _error("Voltage:EmptyParsePlan", f"Path{path_idx + 1} has an empty SLAP2 parse plan.")
 

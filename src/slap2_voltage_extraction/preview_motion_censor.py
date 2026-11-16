@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -32,10 +32,10 @@ def preview_motion_censor(
     del show_gui
     if reader_factory is None:
         try:
-            from slap2 import MultiDataFiles  # type: ignore[import-not-found]
+            from slap2_utils import MultiDataFiles  # type: ignore[import-not-found]
         except ImportError as exc:
             raise ImportError(
-                "previewMotionCensor:MissingSLAP2Reader: pass reader_factory or install slap2"
+                "previewMotionCensor:MissingSLAP2Reader: pass reader_factory or install slap2-utils"
             ) from exc
         reader_factory = MultiDataFiles
 
@@ -47,12 +47,7 @@ def preview_motion_censor(
 
     reader = reader_factory(data_file)
     try:
-        metadata = getattr(reader, "metadata", getattr(reader, "metaData", {}))
-        if isinstance(metadata, Mapping):
-            line_period = metadata.get("line_period_s", metadata.get("linePeriod_s"))
-        else:
-            line_period = getattr(metadata, "line_period_s", getattr(metadata, "linePeriod_s"))
-        line_rate_hz = 1.0 / float(line_period)
+        line_rate_hz = 1.0 / float(reader.metaData.linePeriod_s)
         motion = read_source_online_motion(
             reader, int(params["motion_samples_per_cycle"]), line_rate_hz
         )
