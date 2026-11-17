@@ -1186,7 +1186,7 @@ wheels = [
 [[package]]
 name = "slap2-utils"
 version = "0.6.1"
-source = { git = "https://github.com/rcpeene/SLAP2_Utils.git?rev=6d7a0ef#6d7a0ef9fbfa48d8c6084421dc7c3a795b5b910e" }
+source = { git = "https://github.com/rcpeene/SLAP2_Utils.git?rev=d0039f3#d0039f3cd81160ba0505ecfdd81912ca51567707" }
 dependencies = [
     { name = "dask" },
     { name = "h5py" },
@@ -1224,7 +1224,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.0" },
     { name = "pillow", specifier = ">=11.0" },
     { name = "scipy", specifier = ">=1.14" },
-    { name = "slap2-utils", git = "https://github.com/rcpeene/SLAP2_Utils.git?rev=6d7a0ef" },
+    { name = "slap2-utils", git = "https://github.com/rcpeene/SLAP2_Utils.git?rev=d0039f3" },
     { name = "tifffile", specifier = ">=2024.9.20" },
 ]
 

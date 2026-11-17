@@ -11,9 +11,9 @@ def read_source_online_motion(
     """Read uniformly sampled online motion offsets from SLAP2 line headers.
 
     ``multi_data_files`` must expose canonical ``slap2_utils`` line-header
-    indices, cycle count, and ``getOnlineMotion`` access. This package keeps
+    indices, cycle count, and ``get_online_motion`` access. This package keeps
     global line IDs zero-based internally and converts them to the reader's
-    canonical one-based IDs only when calling ``getOnlineMotion``.
+    canonical one-based IDs only when calling ``get_online_motion``.
     """
 
     if (
@@ -45,7 +45,7 @@ def read_source_online_motion(
         + np.arange(num_cycles, dtype=np.int64)[None, :] * lines_per_cycle
     ).reshape(-1, order="F")
 
-    reader = getattr(multi_data_files, "getOnlineMotion", None)
+    reader = getattr(multi_data_files, "get_online_motion", None)
     if reader is None:
         raise AttributeError(
             "The SLAP2 reader does not support online-motion access; "

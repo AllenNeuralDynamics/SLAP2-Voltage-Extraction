@@ -37,7 +37,7 @@ def _unpack(headers: object, count: int) -> tuple[np.ndarray, np.ndarray, np.nda
 def _batch(data_file: object, residual: np.ndarray, cycles: np.ndarray) -> tuple[np.ndarray, ...] | None:
     for first, second in ((residual, cycles), (residual.reshape(1, -1), cycles.reshape(1, -1))):
         try:
-            unpacked = _unpack(data_file.getLineHeader(first, second), residual.size)
+            unpacked = _unpack(data_file.get_line_header(first, second), residual.size)
             if unpacked is not None:
                 return unpacked
         except Exception:
@@ -55,7 +55,7 @@ def _cycle_grouped(
             line_ids = residual[selected]
             unpacked = None
             for candidate in (line_ids, line_ids.reshape(1, -1)):
-                unpacked = _unpack(data_file.getLineHeader(candidate, int(cycle)), selected.size)
+                unpacked = _unpack(data_file.get_line_header(candidate, int(cycle)), selected.size)
                 if unpacked is not None:
                     break
             if unpacked is None:
@@ -72,7 +72,7 @@ def _scalar(
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     output = [np.full(residual.size, np.nan, dtype=np.float64) for _ in range(3)]
     for index, (line, cycle) in enumerate(zip(residual, cycles, strict=True)):
-        header = data_file.getLineHeader(int(line), int(cycle))
+        header = data_file.get_line_header(int(line), int(cycle))
         for destination, name in zip(
             output, ("xOffset_pix", "yOffset_pix", "zOffset_um"), strict=True
         ):

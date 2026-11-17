@@ -20,7 +20,7 @@ class FakeMotionReader:
         self.numCycles = 2
         self.closed = False
 
-    def getOnlineMotion(
+    def get_online_motion(
         self, line_ids: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         ids = np.asarray(line_ids, dtype=np.int64)
