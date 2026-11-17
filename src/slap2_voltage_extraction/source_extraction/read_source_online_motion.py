@@ -11,9 +11,9 @@ def read_source_online_motion(
     """Read uniformly sampled online motion offsets from SLAP2 line headers.
 
     ``multi_data_files`` must expose canonical ``slap2_utils`` line-header
-    indices, cycle count, and ``getOnlineMotion`` access. The reader receives
-    one-based global line IDs; this package converts them to zero-based IDs at
-    its internal boundary.
+    indices, cycle count, and ``getOnlineMotion`` access. This package keeps
+    global line IDs zero-based internally and converts them to the reader's
+    canonical one-based IDs only when calling ``getOnlineMotion``.
     """
 
     if (
