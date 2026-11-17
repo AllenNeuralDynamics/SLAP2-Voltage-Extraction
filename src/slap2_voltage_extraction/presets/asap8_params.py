@@ -13,6 +13,7 @@ def asap8_params(overrides: Mapping[str, object] | None = None) -> dict[str, obj
     values: dict[str, object] = {
         "indicator_name": "ASAP8",
         "indicator_direction": "increases",
+        "motion_censor_enable": True,
     }
     if overrides:
         values.update(overrides)

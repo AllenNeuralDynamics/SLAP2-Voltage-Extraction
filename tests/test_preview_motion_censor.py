@@ -9,7 +9,7 @@ from slap2_voltage_extraction.preview_motion_censor import preview_motion_censor
 
 
 class FakeMotionReader:
-    """Minimal Python-native reader exposing zero-based line IDs."""
+    """Minimal canonical reader exposing one-based global line IDs."""
 
     def __init__(self, filename: str | Path) -> None:
         path = Path(filename)
@@ -20,11 +20,11 @@ class FakeMotionReader:
         self.numCycles = 2
         self.closed = False
 
-    def get_online_motion(
+    def getOnlineMotion(
         self, line_ids: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         ids = np.asarray(line_ids, dtype=np.int64)
-        return np.zeros(ids.size), np.zeros(ids.size), ids.astype(float)
+        return np.zeros(ids.size), np.zeros(ids.size), (ids - 1).astype(float)
 
     def close(self) -> None:
         self.closed = True

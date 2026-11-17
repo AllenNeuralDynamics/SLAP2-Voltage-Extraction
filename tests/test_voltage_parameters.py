@@ -150,16 +150,19 @@ class TestVoltageParameters:
         assert params["indicator_name"] == "ASAP7"
         assert params["indicator_direction"] == "decreases"
         assert params["f0_method"] == "robust"
-        params = asap7_params({"indicator_name": "ASAP7b", "precision": "double", "f0_percentile": 20})
+        assert params["motion_censor_enable"] is True
+        params = asap7_params({"indicator_name": "ASAP7b", "precision": "double", "f0_percentile": 20, "motion_censor_enable": False})
         assert params["indicator_name"] == "ASAP7b"
         assert params["indicator_direction"] == "decreases"
         assert params["precision"] == "double"
         assert params["f0_percentile"] == 20
+        assert params["motion_censor_enable"] is False
 
     def test_asap8_preset_and_overrides(self) -> None:
         params = asap8_params()
         assert params["indicator_name"] == "ASAP8"
         assert params["indicator_direction"] == "increases"
+        assert params["motion_censor_enable"] is True
         params = asap8_params({"indicator_direction": "decreases", "output_filename": "custom.h5"})
         assert params["indicator_name"] == "ASAP8"
         assert params["indicator_direction"] == "decreases"
