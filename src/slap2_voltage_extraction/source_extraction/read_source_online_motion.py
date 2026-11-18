@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from ..motion.get_online_motion import get_online_motion
+
 
 def read_source_online_motion(
     multi_data_files: object,
@@ -11,9 +13,9 @@ def read_source_online_motion(
     """Read uniformly sampled online motion offsets from SLAP2 line headers.
 
     ``multi_data_files`` must expose canonical ``slap2_utils`` line-header
-    indices, cycle count, and ``getOnlineMotion`` access. This package keeps
-    global line IDs zero-based internally and converts them to the reader's
-    canonical one-based IDs only when calling ``getOnlineMotion``.
+    indices, cycle count, and ``getLineHeader`` access. This package owns the
+    selection and formatting of motion offsets while keeping global line IDs
+    zero-based internally.
     """
 
     if (
@@ -45,13 +47,7 @@ def read_source_online_motion(
         + np.arange(num_cycles, dtype=np.int64)[None, :] * lines_per_cycle
     ).reshape(-1, order="F")
 
-    reader = getattr(multi_data_files, "getOnlineMotion", None)
-    if reader is None:
-        raise AttributeError(
-            "The SLAP2 reader does not support online-motion access; "
-            "online motion censoring is unavailable with this backend."
-        )
-    x, y, z = reader(line_ids + 1)
+    x, y, z = get_online_motion(multi_data_files, line_ids)
 
     return {
         "x": np.asarray(x).reshape(-1),

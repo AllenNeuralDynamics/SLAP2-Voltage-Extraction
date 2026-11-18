@@ -9,7 +9,7 @@ from slap2_voltage_extraction.preview_motion_censor import preview_motion_censor
 
 
 class FakeMotionReader:
-    """Minimal canonical reader exposing one-based global line IDs."""
+    """Minimal canonical reader exposing one-based line-header indices."""
 
     def __init__(self, filename: str | Path) -> None:
         path = Path(filename)
@@ -20,11 +20,18 @@ class FakeMotionReader:
         self.numCycles = 2
         self.closed = False
 
-    def getOnlineMotion(
-        self, line_ids: np.ndarray
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        ids = np.asarray(line_ids, dtype=np.int64)
-        return np.zeros(ids.size), np.zeros(ids.size), (ids - 1).astype(float)
+    def getLineHeader(
+        self, line_indices: np.ndarray, cycle_indices: np.ndarray
+    ) -> list[dict[str, float]]:
+        lines = np.asarray(line_indices, dtype=np.int64).reshape(-1)
+        cycles = np.asarray(cycle_indices, dtype=np.int64).reshape(-1)
+        if np.any(lines < 1) or np.any(cycles < 1):
+            raise ValueError("SLAP2 reader indices must be one-based")
+        global_ids = (cycles - 1) * self.lineHeaderIdxs.size + lines - 1
+        return [
+            {"xOffset_pix": 0.0, "yOffset_pix": 0.0, "zOffset_um": float(line_id)}
+            for line_id in global_ids
+        ]
 
     def close(self) -> None:
         self.closed = True

@@ -83,7 +83,12 @@ def _scalar(
 def get_online_motion(
     data_file: object, line_ids: object | None = None
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Read online motion for zero-based global line indices."""
+    """Read online motion for zero-based global line indices.
+
+    The voltage-extraction API keeps global line IDs zero-based and converts
+    line-within-cycle and cycle indices to the reader's one-based convention
+    only when calling ``getLineHeader``.
+    """
 
     lines_per_cycle = len(data_file.lineHeaderIdxs)
     total_lines = lines_per_cycle * int(data_file.numCycles)
@@ -105,8 +110,8 @@ def get_online_motion(
             f"line_ids must be finite integer indices in [0, {total_lines}).",
         )
     ids = ids.astype(np.int64)
-    cycles = ids // lines_per_cycle
-    residual = ids % lines_per_cycle
+    cycles = ids // lines_per_cycle + 1
+    residual = ids % lines_per_cycle + 1
 
     reader_type = type(data_file)
     mode = _HEADER_MODE_BY_CLASS.get(reader_type)
