@@ -13,7 +13,7 @@ dependencies = [
     "numpy>=2.0",
     "pillow>=11.0",
     "scipy>=1.14",
-    "slap2-utils @ git+https://github.com/rcpeene/SLAP2_Utils.git@1ba54a3",
+    "slap2-utils @ git+https://github.com/rcpeene/SLAP2_Utils.git@86bd182",
     "tifffile>=2024.9.20",
 ]
 
